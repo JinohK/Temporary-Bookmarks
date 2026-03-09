@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Temporary Bookmarks</title>
+		<link rel="stylesheet" href="popup.css" />
+	</head>
+	<body>
+		<div class="container">
+			<!-- Header -->
+			<header class="header">
+				<h1 class="title">📚 <span data-i18n="extName"></span></h1>
+				<div class="header-buttons">
+					<button
+						id="sync-button"
+						class="sync-button"
+						title="Sync with Google Drive"
+					>
+						<img
+							class="sync-icon"
+							src="https://ssl.gstatic.com/images/branding/product/1x/drive_2020q4_48dp.png"
+							alt=""
+						/>
+						<span class="sync-text" data-i18n="connect"
+							>Connect</span
+						>
+					</button>
+					<button
+						id="save-button"
+						class="save-button"
+						title="Save Page"
+						data-i18n="savePage"
+					>
+						<span class="save-icon">➕</span>
+						<span class="save-text" data-i18n="savePage"
+							>Save Page</span
+						>
+					</button>
+				</div>
+			</header>
+
+			<!-- Bookmarks List -->
+			<div id="bookmarks-list" class="bookmarks-list">
+				<!-- Bookmarks will be rendered here dynamically -->
+			</div>
+
+			<!-- Empty State -->
+			<div id="empty-state" class="empty-state" style="display: none">
+				<div class="empty-icon">📭</div>
+				<p class="empty-message" data-i18n="noBookmarks">
+					No bookmarks yet
+				</p>
+				<p class="empty-hint" data-i18n="noBookmarksHint">
+					Click the "Save Page" button above to save your first
+					bookmark
+				</p>
+			</div>
+
+			<div id="notification" class="notification" style="display: none">
+				<div>
+					<div class="notification-title"></div>
+					<div class="notification-message"></div>
+				</div>
+				<button class="notification-action"></button>
+			</div>
+		</div>
+
+		<script type="module" src="popup.js"></script>
+	</body>
+</html>

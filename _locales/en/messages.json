@@ -1,0 +1,110 @@
+{
+	"extName": {
+		"message": "Temporary Bookmarks",
+		"description": "Extension name"
+	},
+	"extDesc": {
+		"message": "One-click temporary bookmark. Supports auto-expiration and Google Drive synchronization.",
+		"description": "Extension description"
+	},
+	"savePage": {
+		"message": "Save Page",
+		"description": "Save page button text"
+	},
+	"noBookmarks": {
+		"message": "No bookmarks yet",
+		"description": "Empty state message"
+	},
+	"noBookmarksHint": {
+		"message": "Click the \"Save Page\" button above to save your first bookmark",
+		"description": "Empty state hint"
+	},
+	"delete": {
+		"message": "Delete",
+		"description": "Delete button text"
+	},
+	"undo": {
+		"message": "Undo",
+		"description": "Undo button text"
+	},
+	"bookmarkDeleted": {
+		"message": "\"$title$\" deleted",
+		"description": "Toast message when bookmark is deleted",
+		"placeholders": {
+			"title": {
+				"content": "$1",
+				"example": "My Page"
+			}
+		}
+	},
+	"cannotSave": {
+		"message": "Cannot save",
+		"description": "Error notification title"
+	},
+	"noActivePage": {
+		"message": "No active page found",
+		"description": "Error message when no active tab"
+	},
+	"onlyWebPages": {
+		"message": "Only web pages can be bookmarked",
+		"description": "Error message for non-http URLs"
+	},
+	"alreadyBookmarked": {
+		"message": "Already bookmarked",
+		"description": "Warning title for duplicate"
+	},
+	"alreadyBookmarkedDesc": {
+		"message": "This page is already in your bookmarks",
+		"description": "Warning message for duplicate"
+	},
+	"error": {
+		"message": "Error",
+		"description": "Generic error title"
+	},
+	"failedToSave": {
+		"message": "Failed to save bookmark",
+		"description": "Error message when save fails"
+	},
+	"expirationDaysPlaceholder": {
+		"message": "Days",
+		"description": "Placeholder for expiration days input"
+	},
+	"expirationTooltip": {
+		"message": "Days until expiration (0 or empty = permanent)",
+		"description": "Tooltip for expiration input"
+	},
+	"connect": {
+		"message": "Connect",
+		"description": "Connect to Google Drive button text"
+	},
+	"disconnect": {
+		"message": "Disconnect",
+		"description": "Disconnect from Google Drive button text"
+	},
+	"syncConnected": {
+		"message": "Connected to Google Drive",
+		"description": "Notification when connected to Google Drive"
+	},
+	"syncDisconnected": {
+		"message": "Disconnected from Google Drive",
+		"description": "Notification when disconnected from Google Drive"
+	},
+	"syncError": {
+		"message": "Sync error: $ERROR$",
+		"description": "Error message for sync failures",
+		"placeholders": {
+			"ERROR": {
+				"content": "$1",
+				"example": "Network error"
+			}
+		}
+	},
+	"syncing": {
+		"message": "Syncing...",
+		"description": "Syncing status text"
+	},
+	"authCancelled": {
+		"message": "Sign-in cancelled",
+		"description": "Message when user cancels auth"
+	}
+}

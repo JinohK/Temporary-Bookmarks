@@ -1,0 +1,32 @@
+{
+	"manifest_version": 3,
+	"name": "__MSG_extName__",
+	"version": "1.0.0",
+	"default_locale": "en",
+	"description": "__MSG_extDesc__",
+	"permissions": ["storage", "tabs", "identity"],
+	"oauth2": {
+		"client_id": "1041348385530-65t9onb9sl9koq71jac8s2st97mnvloc.apps.googleusercontent.com",
+		"scopes": ["https://www.googleapis.com/auth/drive.file"]
+	},
+	"host_permissions": [],
+	"action": {
+		"default_popup": "popup/popup.html",
+		"default_icon": {
+			"16": "icons/icon16.png",
+			"32": "icons/icon32.png",
+			"48": "icons/icon48.png",
+			"128": "icons/icon128.png"
+		}
+	},
+	"background": {
+		"service_worker": "background.js",
+		"type": "module"
+	},
+	"icons": {
+		"16": "icons/icon16.png",
+		"32": "icons/icon32.png",
+		"48": "icons/icon48.png",
+		"128": "icons/icon128.png"
+	}
+}
