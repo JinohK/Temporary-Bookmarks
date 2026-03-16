@@ -27,7 +27,7 @@
 
 ### Chrome 웹 스토어에서 설치
 
-[🏪 Chrome 웹 스토어에서 설치](https://chrome.google.com/webstore/detail/adclfhflhjnpdahjcnliibmddpolfaga)
+[🏪 Chrome 웹 스토어에서 설치](https://chrome.google.com/webstore/detail/jjibefdokobfdgcmegcjbkcpeocebked)
 
 ### 소스에서 설치
 

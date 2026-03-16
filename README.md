@@ -27,7 +27,7 @@
 
 ### From Chrome Web Store
 
-[🏪 Install from Chrome Web Store](https://chrome.google.com/webstore/detail/adclfhflhjnpdahjcnliibmddpolfaga)
+[🏪 Install from Chrome Web Store](https://chrome.google.com/webstore/detail/jjibefdokobfdgcmegcjbkcpeocebked)
 
 ### From Source
 
