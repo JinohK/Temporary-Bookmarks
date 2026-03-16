@@ -763,6 +763,13 @@ function renderBookmarks() {
         </div>
       `;
 
+			// Add click listener to bookmark info to open in new tab
+			const bookmarkInfo = item.querySelector(".bookmark-info");
+			bookmarkInfo.style.cursor = "pointer";
+			bookmarkInfo.addEventListener("click", () => {
+				chrome.tabs.create({ url: bookmark.url });
+			});
+
 			// Add delete button listener
 			const deleteButton = item.querySelector(".bookmark-delete");
 			deleteButton.addEventListener("click", () => {
