@@ -97,8 +97,8 @@ Google Drive 동기화를 활성화하는 경우:
 
 이 개인정보처리방침이나 데이터 처리 방법에 대한 질문이 있으시면 문의해 주세요:
 
-- **GitHub Issues:** [https://github.com/your-username/temporary-bookmark/issues](https://github.com/your-username/temporary-bookmark/issues)
+- **GitHub Issues:** [https://github.com/JinohK/Temporary-Bookmarks/issues](https://github.com/JinohK/Temporary-Bookmarks/issues)
 
 ---
 
-**참고:** 이 확장 프로그램은 오픈 소스 프로젝트입니다. 소스 코드는 다음에서 확인할 수 있습니다: [https://github.com/your-username/temporary-bookmark](https://github.com/your-username/temporary-bookmark)
+**참고:** 이 확장 프로그램은 오픈 소스 프로젝트입니다. 소스 코드는 다음에서 확인할 수 있습니다: [https://github.com/JinohK/Temporary-Bookmarks](https://github.com/JinohK/Temporary-Bookmarks)

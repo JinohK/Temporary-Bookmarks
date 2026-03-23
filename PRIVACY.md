@@ -97,8 +97,8 @@ We may update this privacy policy from time to time. We will notify you of any c
 
 If you have questions about this privacy policy or how we handle your data, please contact us:
 
-- **GitHub Issues:** [https://github.com/your-username/temporary-bookmark/issues](https://github.com/your-username/temporary-bookmark/issues)
+- **GitHub Issues:** [https://github.com/JinohK/Temporary-Bookmarks/issues](https://github.com/JinohK/Temporary-Bookmarks/issues)
 
 ---
 
-**Note:** This Extension is an open-source project. You can review the source code at: [https://github.com/your-username/temporary-bookmark](https://github.com/your-username/temporary-bookmark)
+**Note:** This Extension is an open-source project. You can review the source code at: [https://github.com/JinohK/Temporary-Bookmarks](https://github.com/JinohK/Temporary-Bookmarks)
