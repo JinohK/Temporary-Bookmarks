@@ -343,6 +343,9 @@ async function updateBookmarkExpiration(bookmarkId, inputValue) {
 			bookmark.expirationDays = days;
 		}
 
+		// Update lastModified for sync merge
+		bookmark.lastModified = Date.now();
+
 		// Save to storage
 		await chrome.storage.local.set({
 			bookmarkData: {
@@ -854,6 +857,7 @@ async function saveCurrentPage() {
 			title: title || "",
 			url: url,
 			createdAt: now,
+			lastModified: now,
 			expirationDays: prefs.defaultExpirationDays,
 			expiresAt: prefs.defaultExpirationDays
 				? now + prefs.defaultExpirationDays * 24 * 60 * 60 * 1000
