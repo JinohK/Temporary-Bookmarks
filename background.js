@@ -20,8 +20,12 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 	if (areaName === "local") {
 		console.log("[Background] Storage changed:", changes);
 
-		// Trigger syncUp when bookmarkData changes and sync is connected
-		if (changes.bookmarkData) {
+		// Trigger syncUp only for actual local edits queued for upload.
+		if (
+			changes.bookmarkData ||
+			changes.pendingSyncChanges ||
+			changes.deletedBookmarks
+		) {
 			triggerSyncUp();
 		}
 	}
@@ -32,11 +36,21 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
  */
 async function triggerSyncUp() {
 	try {
-		const result = await chrome.storage.local.get(["syncState"]);
+		const result = await chrome.storage.local.get([
+			"syncState",
+			"pendingSyncChanges",
+			"deletedBookmarks",
+		]);
 		const syncState = result.syncState;
+		const pendingChanges = result.pendingSyncChanges || [];
+		const deletedBookmarks = result.deletedBookmarks || [];
 
-		if (syncState && syncState.isConnected) {
-			console.log("[Background] Bookmark changed, triggering syncUp");
+		if (
+			syncState &&
+			syncState.isConnected &&
+			(pendingChanges.length > 0 || deletedBookmarks.length > 0)
+		) {
+			console.log("[Background] Local changes detected, triggering syncUp");
 			await syncManager.syncUp();
 		}
 	} catch (error) {

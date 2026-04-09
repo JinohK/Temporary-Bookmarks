@@ -13,6 +13,7 @@ const undoHideSeconds = 3;
 
 // Constants for expiration calculation
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
+const PENDING_CHANGES_KEY = "pendingSyncChanges";
 
 // Sync state tracking
 let currentSyncState = null;
@@ -126,6 +127,30 @@ async function sendMessageWithRetry(message, retries = 2) {
 			}
 			throw error;
 		}
+	}
+}
+
+/**
+ * Queue a local change so the background worker can upload only real edits
+ * @param {string} type - "add", "update", "delete"
+ * @param {string} bookmarkId - Affected bookmark ID
+ * @returns {Promise<void>}
+ */
+async function queueLocalSyncChange(type, bookmarkId) {
+	try {
+		const result = await chrome.storage.local.get([PENDING_CHANGES_KEY]);
+		const pending = result[PENDING_CHANGES_KEY] || [];
+
+		pending.push({
+			type,
+			bookmarkId,
+			timestamp: Date.now(),
+		});
+
+		await chrome.storage.local.set({ [PENDING_CHANGES_KEY]: pending });
+		console.log("[Popup] Queued local sync change:", type, bookmarkId);
+	} catch (error) {
+		console.error("[Popup] Error queueing local sync change:", error);
 	}
 }
 
@@ -282,13 +307,17 @@ async function removeExpiredBookmarks() {
 		const result = await chrome.storage.local.get("bookmarkData");
 		const bookmarks = result.bookmarkData?.bookmarks || [];
 		const now = Date.now();
+		const expiredBookmarks = bookmarks.filter(
+			(bookmark) =>
+				bookmark.expiresAt !== null && bookmark.expiresAt <= now,
+		);
 
 		const activeBookmarks = bookmarks.filter((bookmark) => {
 			if (bookmark.expiresAt === null) return true; // Permanent
 			return bookmark.expiresAt > now; // Not expired
 		});
 
-		const expiredCount = bookmarks.length - activeBookmarks.length;
+		const expiredCount = expiredBookmarks.length;
 
 		if (expiredCount > 0) {
 			await chrome.storage.local.set({
@@ -297,6 +326,12 @@ async function removeExpiredBookmarks() {
 					version: result.bookmarkData?.version || 1,
 				},
 			});
+
+			for (const bookmark of expiredBookmarks) {
+				await markBookmarkDeletedForSync(bookmark.id);
+				await queueLocalSyncChange("delete", bookmark.id);
+			}
+
 			console.log(`[Popup] Removed ${expiredCount} expired bookmark(s)`);
 		}
 
@@ -353,6 +388,8 @@ async function updateBookmarkExpiration(bookmarkId, inputValue) {
 				version: result.bookmarkData?.version || 1,
 			},
 		});
+
+		await queueLocalSyncChange("update", bookmarkId);
 
 		return true;
 	} catch (error) {
@@ -590,6 +627,7 @@ async function actuallyDeleteBookmark(bookmarkId) {
 
 		// Mark as deleted for sync purposes (so it gets removed from Google Drive too)
 		await markBookmarkDeletedForSync(bookmarkId);
+		await queueLocalSyncChange("delete", bookmarkId);
 
 		console.log("[Popup] Bookmark deletion finalized:", bookmarkId);
 	} catch (error) {
@@ -878,6 +916,8 @@ async function saveCurrentPage() {
 			},
 		});
 
+		await queueLocalSyncChange("add", bookmark.id);
+
 		// Refresh display
 		await loadBookmarks();
 		renderBookmarks();
@@ -979,45 +1019,47 @@ async function checkPendingDeletions() {
 document.addEventListener("DOMContentLoaded", async () => {
 	console.log("[Popup] Initializing...");
 
-	// STEP 1: Remove expired bookmarks FIRST (FR-001, FR-004)
-	// This ensures users never see expired bookmarks
-	await removeExpiredBookmarks();
-
-	// STEP 2: Apply translations to all static text elements
+	// STEP 1: Apply translations to all static text elements
 	translatePage();
 
-	// STEP 3: Load and render bookmarks
-	await loadBookmarks();
-	renderBookmarks();
-
-	// Check for pending deletions
-	await checkPendingDeletions();
-
-	// Setup save button listener
+	// STEP 2: Setup save button listener
 	const saveButton = document.getElementById("save-button");
 	if (saveButton) {
 		saveButton.addEventListener("click", saveCurrentPage);
 		console.log("[Popup] Save button listener attached");
 	}
 
-	// Setup sync button listener
+	// STEP 3: Setup sync button listener
 	const syncButton = document.getElementById("sync-button");
 	if (syncButton) {
 		syncButton.addEventListener("click", handleSyncClick);
 		console.log("[Popup] Sync button listener attached");
 	}
 
-	// Initialize sync button state
+	// STEP 4: Initialize sync button state
 	await updateSyncButton();
 
-	// Trigger sync on popup open if connected (T038)
+	// STEP 5: Pull remote changes before local cleanup to avoid uploading stale state.
 	const syncState = await getSyncState();
 	if (syncState.isConnected) {
-		console.log("[Popup] Connected, triggering syncDown on open");
-		sendMessageWithRetry({ type: "SYNC_NOW" }).catch((err) => {
+		console.log("[Popup] Connected, triggering sync on open");
+		try {
+			await sendMessageWithRetry({ type: "SYNC_NOW" });
+		} catch (err) {
 			console.warn("[Popup] Could not trigger sync on open:", err);
-		});
+		}
 	}
+
+	// STEP 6: Remove expired bookmarks after remote merge so stale local state
+	// does not overwrite newer Drive data on startup.
+	await removeExpiredBookmarks();
+
+	// STEP 7: Load and render bookmarks
+	await loadBookmarks();
+	renderBookmarks();
+
+	// Check for pending deletions
+	await checkPendingDeletions();
 
 	// Listen for sync state changes from background
 	chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
