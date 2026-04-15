@@ -116,6 +116,7 @@ async function getOrCreateSyncFile() {
 			version: 1,
 			lastModified: Date.now(),
 			bookmarks: [],
+			deletedBookmarks: [],
 		};
 
 		await writeFile(newFile.id, initialData);

@@ -50,7 +50,9 @@ async function triggerSyncUp() {
 			syncState.isConnected &&
 			(pendingChanges.length > 0 || deletedBookmarks.length > 0)
 		) {
-			console.log("[Background] Local changes detected, triggering syncUp");
+			console.log(
+				"[Background] Local changes detected, triggering syncUp",
+			);
 			await syncManager.syncUp();
 		}
 	} catch (error) {
@@ -110,11 +112,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
  */
 chrome.runtime.onInstalled.addListener(async (details) => {
 	console.log("[Background] Extension installed/updated:", details.reason);
-
-	// Clear old alarms (feature 009 & 010 cleanup)
-	await chrome.alarms.clear("expiration-check");
-	await chrome.alarms.clear("sync-check");
-	console.log("[Background] Cleared old alarms");
 
 	// Initialize storage schema if needed
 	const result = await chrome.storage.local.get([

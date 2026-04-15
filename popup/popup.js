@@ -639,19 +639,31 @@ async function actuallyDeleteBookmark(bookmarkId) {
  * Mark bookmark as deleted for sync purposes
  * @param {string} bookmarkId - ID of the deleted bookmark
  */
-async function markBookmarkDeletedForSync(bookmarkId) {
+async function markBookmarkDeletedForSync(bookmarkId, deletedAt = Date.now()) {
 	try {
 		const result = await chrome.storage.local.get(["deletedBookmarks"]);
-		const deleted = result.deletedBookmarks || [];
+		const deleted = Array.isArray(result.deletedBookmarks)
+			? result.deletedBookmarks
+			: [];
+		const existingIndex = deleted.findIndex((entry) => {
+			if (typeof entry === "string") {
+				return entry === bookmarkId;
+			}
+			return entry?.id === bookmarkId;
+		});
+		const tombstone = { id: bookmarkId, deletedAt };
 
-		if (!deleted.includes(bookmarkId)) {
-			deleted.push(bookmarkId);
-			await chrome.storage.local.set({ deletedBookmarks: deleted });
-			console.log(
-				"[Popup] Marked bookmark as deleted for sync:",
-				bookmarkId,
-			);
+		if (existingIndex >= 0) {
+			deleted[existingIndex] = tombstone;
+		} else {
+			deleted.push(tombstone);
 		}
+
+		await chrome.storage.local.set({ deletedBookmarks: deleted });
+		console.log(
+			"[Popup] Marked bookmark as deleted for sync:",
+			bookmarkId,
+		);
 	} catch (error) {
 		console.error(
 			"[Popup] Error marking bookmark deleted for sync:",
@@ -745,46 +757,48 @@ async function loadBookmarks() {
 
 /**
  * Render bookmarks to the UI
+ * @param {Array|null} bookmarksToRender - Optional bookmark array to render
  */
-function renderBookmarks() {
+async function renderBookmarks(bookmarksToRender = null) {
 	const bookmarksList = document.getElementById("bookmarks-list");
 	const emptyState = document.getElementById("empty-state");
 
-	loadBookmarks().then((bookmarks) => {
-		// Filter out expired bookmarks
-		const activeBookmarks = filterExpiredBookmarks(bookmarks);
+	const bookmarks = bookmarksToRender ?? (await loadBookmarks());
 
-		// Show empty state if no bookmarks
-		if (activeBookmarks.length === 0) {
-			bookmarksList.style.display = "none";
-			emptyState.style.display = "block";
-			return;
-		}
+	// Filter out expired bookmarks
+	const activeBookmarks = filterExpiredBookmarks(bookmarks);
 
-		// Hide empty state and show bookmarks
-		bookmarksList.style.display = "block";
-		emptyState.style.display = "none";
+	// Show empty state if no bookmarks
+	if (activeBookmarks.length === 0) {
+		bookmarksList.style.display = "none";
+		emptyState.style.display = "block";
+		return;
+	}
 
-		// Clear existing list
-		bookmarksList.innerHTML = "";
+	// Hide empty state and show bookmarks
+	bookmarksList.style.display = "block";
+	emptyState.style.display = "none";
 
-		// Render each bookmark
-		activeBookmarks.forEach((bookmark) => {
-			const remainingDays = calculateRemainingDays(bookmark.expiresAt);
-			const urgent = isExpirationUrgent(remainingDays);
+	// Clear existing list
+	bookmarksList.innerHTML = "";
 
-			const item = document.createElement("div");
-			item.className = "bookmark-item";
-			item.dataset.id = bookmark.id;
+	// Render each bookmark
+	activeBookmarks.forEach((bookmark) => {
+		const remainingDays = calculateRemainingDays(bookmark.expiresAt);
+		const urgent = isExpirationUrgent(remainingDays);
 
-			// Get translated texts
-			const deleteText = chrome.i18n.getMessage("delete");
-			const placeholder = chrome.i18n.getMessage(
-				"expirationDaysPlaceholder",
-			);
-			const tooltip = chrome.i18n.getMessage("expirationTooltip");
+		const item = document.createElement("div");
+		item.className = "bookmark-item";
+		item.dataset.id = bookmark.id;
 
-			item.innerHTML = `
+		// Get translated texts
+		const deleteText = chrome.i18n.getMessage("delete");
+		const placeholder = chrome.i18n.getMessage(
+			"expirationDaysPlaceholder",
+		);
+		const tooltip = chrome.i18n.getMessage("expirationTooltip");
+
+		item.innerHTML = `
         <div class="bookmark-info">
           <div class="bookmark-title">${escapeHtml(bookmark.title)}</div>
           <div class="bookmark-url">${escapeHtml(bookmark.url)}</div>
@@ -804,25 +818,33 @@ function renderBookmarks() {
         </div>
       `;
 
-			// Add click listener to bookmark info to open in new tab
-			const bookmarkInfo = item.querySelector(".bookmark-info");
-			bookmarkInfo.style.cursor = "pointer";
-			bookmarkInfo.addEventListener("click", () => {
-				chrome.tabs.create({ url: bookmark.url });
-			});
-
-			// Add delete button listener
-			const deleteButton = item.querySelector(".bookmark-delete");
-			deleteButton.addEventListener("click", () => {
-				deleteBookmark(bookmark.id, bookmark);
-			});
-
-			bookmarksList.appendChild(item);
+		// Add click listener to bookmark info to open in new tab
+		const bookmarkInfo = item.querySelector(".bookmark-info");
+		bookmarkInfo.style.cursor = "pointer";
+		bookmarkInfo.addEventListener("click", () => {
+			chrome.tabs.create({ url: bookmark.url });
 		});
 
-		// Bind expiration input events
-		bindExpirationInputEvents();
+		// Add delete button listener
+		const deleteButton = item.querySelector(".bookmark-delete");
+		deleteButton.addEventListener("click", () => {
+			deleteBookmark(bookmark.id, bookmark);
+		});
+
+		bookmarksList.appendChild(item);
 	});
+
+	// Bind expiration input events
+	bindExpirationInputEvents();
+}
+
+/**
+ * Clean up expired bookmarks in storage, then refresh the rendered list
+ * @returns {Promise<void>}
+ */
+async function cleanupExpiredBookmarksAndRender() {
+	await removeExpiredBookmarks();
+	await renderBookmarks();
 }
 
 /**
@@ -919,8 +941,7 @@ async function saveCurrentPage() {
 		await queueLocalSyncChange("add", bookmark.id);
 
 		// Refresh display
-		await loadBookmarks();
-		renderBookmarks();
+		await renderBookmarks();
 
 		console.log("[Popup] Bookmark saved:", bookmark);
 	} catch (error) {
@@ -1039,27 +1060,33 @@ document.addEventListener("DOMContentLoaded", async () => {
 	// STEP 4: Initialize sync button state
 	await updateSyncButton();
 
-	// STEP 5: Pull remote changes before local cleanup to avoid uploading stale state.
+	// STEP 5: Render local bookmarks immediately so popup is responsive.
+	await renderBookmarks();
+
+	// STEP 6: Check for pending deletions
+	await checkPendingDeletions();
+
+	// STEP 7: Start sync in the background. Cleanup runs after sync settles.
 	const syncState = await getSyncState();
 	if (syncState.isConnected) {
-		console.log("[Popup] Connected, triggering sync on open");
-		try {
-			await sendMessageWithRetry({ type: "SYNC_NOW" });
-		} catch (err) {
+		console.log("[Popup] Connected, triggering background sync on open");
+		sendMessageWithRetry({ type: "SYNC_NOW" }).catch((err) => {
 			console.warn("[Popup] Could not trigger sync on open:", err);
-		}
+			cleanupExpiredBookmarksAndRender().catch((cleanupError) => {
+				console.error(
+					"[Popup] Error cleaning up expired bookmarks after sync trigger failure:",
+					cleanupError,
+				);
+			});
+		});
+	} else {
+		cleanupExpiredBookmarksAndRender().catch((error) => {
+			console.error(
+				"[Popup] Error cleaning up expired bookmarks on open:",
+				error,
+			);
+		});
 	}
-
-	// STEP 6: Remove expired bookmarks after remote merge so stale local state
-	// does not overwrite newer Drive data on startup.
-	await removeExpiredBookmarks();
-
-	// STEP 7: Load and render bookmarks
-	await loadBookmarks();
-	renderBookmarks();
-
-	// Check for pending deletions
-	await checkPendingDeletions();
 
 	// Listen for sync state changes from background
 	chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -1069,10 +1096,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 		}
 		if (message.type === "SYNC_COMPLETED") {
 			console.log("[Popup] Sync completed");
-			loadBookmarks().then(renderBookmarks);
+			cleanupExpiredBookmarksAndRender().catch((error) => {
+				console.error(
+					"[Popup] Error cleaning up expired bookmarks after sync:",
+					error,
+				);
+			});
 		}
 		if (message.type === "SYNC_ERROR") {
 			console.error("[Popup] Sync error:", message.payload?.error);
+			cleanupExpiredBookmarksAndRender().catch((error) => {
+				console.error(
+					"[Popup] Error cleaning up expired bookmarks after sync error:",
+					error,
+				);
+			});
 		}
 	});
 

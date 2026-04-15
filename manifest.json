@@ -1,7 +1,7 @@
 {
 	"manifest_version": 3,
 	"name": "__MSG_extName__",
-	"version": "1.0.3",
+	"version": "1.0.4",
 	"default_locale": "en",
 	"description": "__MSG_extDesc__",
 	"permissions": ["storage", "tabs", "identity"],
@@ -28,5 +28,6 @@
 		"32": "icons/icon32.png",
 		"48": "icons/icon48.png",
 		"128": "icons/icon128.png"
-	}
+	},
+	"key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAvSuRZXDXubS6aaLecopwOjL3GHuebohvs5y+yjNARv9IQEPXC2OE8nLa3SNkyV5dWUbUoS3mthVgDRKV6LCM1WnZWArIT7h2I0ZelKluLfHMyf9jwUMRpduGUF67ugO5qoqwQQCYDBNh4s77eufm9DaOCftsHO1ym+lX5om5Y5u/a4H56VrCkc5I7ZTiS045A78tTYpuyylc7cl8F4sHzfMPpMdKgNyN3CO8bKZ+vSmLgMVTT7g29odyQtRurWrkmd5jOv4lBAl4avRLUt8ijfxVS773jtuBlQDPjzCvvxB3dEpm2QAuO95eg3ENqgOaUlNzkXN+uSS/8o1HXUc2NQIDAQAB"
 }
