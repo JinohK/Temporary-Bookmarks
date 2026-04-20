@@ -10,11 +10,13 @@ const SYNC_STATE_KEY = "syncState";
 const BOOKMARK_DATA_KEY = "bookmarkData";
 const PENDING_CHANGES_KEY = "pendingSyncChanges";
 const DELETED_BOOKMARKS_KEY = "deletedBookmarks";
+const PENDING_DELETIONS_KEY = "pendingDeletions";
 
 const TOMBSTONE_TTL_MS = 15 * 24 * 60 * 60 * 1000;
 
 let isInitialized = false;
 let isSyncing = false;
+let hasQueuedSyncUp = false;
 
 async function init() {
 	if (isInitialized) return;
@@ -182,6 +184,22 @@ async function getDeletedBookmarkTombstones() {
 	}
 }
 
+async function getPendingDeletionTombstones() {
+	try {
+		const result = await chrome.storage.local.get([PENDING_DELETIONS_KEY]);
+		const pending = result[PENDING_DELETIONS_KEY] || [];
+		return pending
+			.filter((entry) => entry?.bookmarkId && entry?.timestamp)
+			.map((entry) => ({
+				id: entry.bookmarkId,
+				deletedAt: entry.timestamp,
+			}));
+	} catch (error) {
+		console.error("[SyncManager] Error getting pending deletion tombstones:", error);
+		return [];
+	}
+}
+
 async function setDeletedBookmarkTombstones(tombstones) {
 	const pruned = pruneExpiredTombstones(tombstones);
 	await chrome.storage.local.set({ [DELETED_BOOKMARKS_KEY]: pruned });
@@ -221,18 +239,25 @@ async function syncCore(mode = "full") {
 		return { success: false, error: "NOT_CONNECTED" };
 	}
 
-	const localData = await getLocalBookmarkData();
-	const localBookmarks = localData.bookmarks || [];
-	const localTombstones = await getDeletedBookmarkTombstones();
-
 	const remoteData = normalizeRemoteData(
 		await googleDrive.readFile(state.fileId),
 	);
 
+	// Re-read local state after the remote fetch so user edits made while the
+	// network request was in flight are included in the merge.
+	const localData = await getLocalBookmarkData();
+	const localBookmarks = localData.bookmarks || [];
+	const localTombstones = await getDeletedBookmarkTombstones();
+	const pendingDeletionTombstones = await getPendingDeletionTombstones();
+
 	const { bookmarks, tombstones } = resolveBookmarksAndTombstones(
 		localBookmarks,
 		remoteData.bookmarks || [],
-		[...localTombstones, ...(remoteData.deletedBookmarks || [])],
+		[
+			...localTombstones,
+			...pendingDeletionTombstones,
+			...(remoteData.deletedBookmarks || []),
+		],
 	);
 
 	await saveLocalState(bookmarks, tombstones, localData.version || 1);
@@ -375,12 +400,19 @@ async function sync() {
 		return { success: false, error: error.message || "SYNC_FAILED" };
 	} finally {
 		isSyncing = false;
+		if (hasQueuedSyncUp) {
+			hasQueuedSyncUp = false;
+			syncUp().catch((error) => {
+				console.error("[SyncManager] Queued upload sync error:", error);
+			});
+		}
 	}
 }
 
 async function syncUp() {
 	if (isSyncing) {
-		console.log("[SyncManager] Sync already in progress, queuing");
+		hasQueuedSyncUp = true;
+		console.log("[SyncManager] Sync already in progress, queuing upload");
 		return { success: true };
 	}
 
@@ -397,6 +429,12 @@ async function syncUp() {
 		return { success: false, error: error.message || "UPLOAD_FAILED" };
 	} finally {
 		isSyncing = false;
+		if (hasQueuedSyncUp) {
+			hasQueuedSyncUp = false;
+			syncUp().catch((error) => {
+				console.error("[SyncManager] Queued upload sync error:", error);
+			});
+		}
 	}
 }
 
@@ -431,6 +469,12 @@ async function syncDown() {
 		return { success: false, error: error.message || "DOWNLOAD_FAILED" };
 	} finally {
 		isSyncing = false;
+		if (hasQueuedSyncUp) {
+			hasQueuedSyncUp = false;
+			syncUp().catch((error) => {
+				console.error("[SyncManager] Queued upload sync error:", error);
+			});
+		}
 	}
 }
 

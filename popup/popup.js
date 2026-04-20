@@ -556,6 +556,8 @@ async function undoDelete(bookmarkId) {
 	}
 
 	try {
+		const restoreTime = Date.now();
+
 		// Get the pending deletion record to find originalIndex and bookmark data
 		const pendingResult = await chrome.storage.local.get([
 			"pendingDeletions",
@@ -567,6 +569,10 @@ async function undoDelete(bookmarkId) {
 			// Restore bookmark to storage at original position
 			const dataResult = await chrome.storage.local.get(["bookmarkData"]);
 			const data = dataResult.bookmarkData || { bookmarks: [] };
+			const restoredBookmark = {
+				...deletionRecord.bookmark,
+				lastModified: restoreTime,
+			};
 
 			// Calculate restore index (handle edge cases)
 			const restoreIndex =
@@ -578,7 +584,7 @@ async function undoDelete(bookmarkId) {
 					: data.bookmarks.length; // Backward compatibility: append to end
 
 			// Insert bookmark at original position
-			data.bookmarks.splice(restoreIndex, 0, deletionRecord.bookmark);
+			data.bookmarks.splice(restoreIndex, 0, restoredBookmark);
 
 			await chrome.storage.local.set({
 				bookmarkData: {
@@ -590,6 +596,19 @@ async function undoDelete(bookmarkId) {
 			// Remove from pending deletions
 			const updated = pending.filter((d) => d.bookmarkId !== bookmarkId);
 			await chrome.storage.local.set({ pendingDeletions: updated });
+
+			// Clear any tombstone that may have been created while the undo window was open
+			const deletedResult = await chrome.storage.local.get(["deletedBookmarks"]);
+			const deleted = Array.isArray(deletedResult.deletedBookmarks)
+				? deletedResult.deletedBookmarks
+				: [];
+			const filteredDeleted = deleted.filter((entry) => {
+				if (typeof entry === "string") {
+					return entry !== bookmarkId;
+				}
+				return entry?.id !== bookmarkId;
+			});
+			await chrome.storage.local.set({ deletedBookmarks: filteredDeleted });
 
 			// Refresh display
 			await loadBookmarks();
@@ -756,6 +775,25 @@ async function loadBookmarks() {
 }
 
 /**
+ * Get bookmark IDs that are pending deletion during the undo window
+ * @returns {Promise<Set<string>>}
+ */
+async function getPendingDeletionIds() {
+	try {
+		const result = await chrome.storage.local.get(["pendingDeletions"]);
+		const pending = result.pendingDeletions || [];
+		return new Set(
+			pending
+				.map((entry) => entry?.bookmarkId)
+				.filter(Boolean),
+		);
+	} catch (error) {
+		console.error("[Popup] Error loading pending deletions:", error);
+		return new Set();
+	}
+}
+
+/**
  * Render bookmarks to the UI
  * @param {Array|null} bookmarksToRender - Optional bookmark array to render
  */
@@ -764,9 +802,12 @@ async function renderBookmarks(bookmarksToRender = null) {
 	const emptyState = document.getElementById("empty-state");
 
 	const bookmarks = bookmarksToRender ?? (await loadBookmarks());
+	const pendingDeletionIds = await getPendingDeletionIds();
 
 	// Filter out expired bookmarks
-	const activeBookmarks = filterExpiredBookmarks(bookmarks);
+	const activeBookmarks = filterExpiredBookmarks(bookmarks).filter(
+		(bookmark) => !pendingDeletionIds.has(bookmark.id),
+	);
 
 	// Show empty state if no bookmarks
 	if (activeBookmarks.length === 0) {
